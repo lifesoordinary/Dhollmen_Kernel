@@ -518,7 +518,7 @@ void register_disk(struct gendisk *disk)
 
 	ddev->parent = disk->driverfs_dev;
 
-	dev_set_name(ddev, disk->disk_name);
+	dev_set_name(ddev, "%s", disk->disk_name);
 
 	/* delay uevents, until we scanned partition table */
 	dev_set_uevent_suppress(ddev, 1);
@@ -614,36 +614,35 @@ void add_disk(struct gendisk *disk)
 	register_disk(disk);
 	blk_register_queue(disk);
 
-        /*
-         * Take an extra ref on queue which will be put on disk_release()
-         * so that it sticks around as long as @disk is there.
-         */
-        WARN_ON_ONCE(blk_get_queue(disk->queue));
+    /*
+     * Take an extra ref on queue which will be put on disk_release()
+     * so that it sticks around as long as @disk is there.
+     */
+	WARN_ON_ONCE(blk_get_queue(disk->queue));
 
-	retval = sysfs_create_link(&disk_to_dev(disk)->kobj, &bdi->dev->kobj,
-				   "bdi");
+	retval = sysfs_create_link(&disk_to_dev(disk)->kobj, &bdi->dev->kobj, "bdi");
 	WARN_ON(retval);
-	
-		/*
-		* Limit default readahead size for small devices.
-		*        disk size    readahead size
-		*               1M                8k
-		*               4M               16k
-		*              16M               32k
-		*              64M               64k
-		*             256M              128k
-		*               1G              256k
-		*               4G              512k
-		*              16G             1024k
-		*              64G             2048k
-		*             256G             4096k
-		*/
+
+	/*
+ 	 * Limit default readahead size for small devices.
+	 *        disk size    readahead size
+	 *               1M                8k
+	 *               4M               16k
+	 *              16M               32k
+	 *              64M               64k
+	 *             256M              128k
+	 *               1G              256k
+	 *               4G              512k
+	 *              16G             1024k
+	 *              64G             2048k
+	 *             256G             4096k
+	 */
 	if (get_capacity(disk)) {
 		unsigned long size = get_capacity(disk) >> 9;
 		size = 1UL << (ilog2(size) / 2);
 		bdi->ra_pages = min(bdi->ra_pages, size);
 	}
-	 
+
 	disk_add_events(disk);
 }
 EXPORT_SYMBOL(add_disk);

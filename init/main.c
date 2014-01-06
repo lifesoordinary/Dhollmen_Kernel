@@ -68,6 +68,7 @@
 #include <linux/shmem_fs.h>
 #include <linux/slab.h>
 #include <linux/perf_event.h>
+#include <linux/random.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -129,6 +130,9 @@ static char *static_command_line;
 static char *execute_command;
 static char *ramdisk_execute_command;
 
+#ifdef CONFIG_USB_ANDROID_MTP_LATE_INIT
+unsigned int rom_feature_set = 0;
+#endif
 /*
  * If set, this is an indication to the drivers that reset the underlying
  * device before going ahead with the initialization otherwise driver might
@@ -710,6 +714,7 @@ static void __init do_basic_setup(void)
 	init_irq_proc();
 	do_ctors();
 	do_initcalls();
+	random_int_secret_init();
 }
 
 static void __init do_pre_smp_initcalls(void)
@@ -752,10 +757,9 @@ void do_deferred_initcalls(void)
 #endif /* CONFIG_DEFERRED_INITCALLS */
 
 static void __init kernel_init_freeable(void);
-
 static int __ref kernel_init(void *unused)
 {
-	  kernel_init_freeable(); 
+	kernel_init_freeable();
 	/* need to finish all async __init code before freeing the memory */
 	async_synchronize_full();
 #if !defined(CONFIG_DEFERRED_INITCALLS)
@@ -776,20 +780,18 @@ static int __ref kernel_init(void *unused)
 		run_init_process(execute_command);
 	}
 	run_init_process("/sbin/init");
+
 	panic("No init found.  Try passing init= option to kernel. ");
 }
 
 static void __init kernel_init_freeable(void) 
 {
-	int dummyz ;
 	/*
 	 * Wait until kthreadd is all set-up.
 	 */
 	wait_for_completion(&kthreadd_done);
-
 	/* Now the scheduler is fully set up and can do blocking allocations */
 	gfp_allowed_mask = __GFP_BITS_MASK;
-
 	/*
 	 * init can allocate pages on any node
 	 */
@@ -813,15 +815,13 @@ static void __init kernel_init_freeable(void)
 
 	/* Open the /dev/console on the rootfs, this should never fail */
 	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
-		dummyz = 0;
+		printk(KERN_WARNING "Warning: unable to open an initial console.\n");
 
 	(void) sys_dup(0);
 	(void) sys_dup(0);
 	/*
-	 * check if there is an early userspace init.  If yes, let it do all
-	 * the work
+	 * check if there is an early userspace init.  If yes, let it do all the work
 	 */
-
 	if (!ramdisk_execute_command)
 		ramdisk_execute_command = "/init";
 
@@ -831,6 +831,6 @@ static void __init kernel_init_freeable(void)
 	}
 
 	/*
-	 * Ok, we have completed the initial bootup, 
+	 * Ok, we have completed the initial bootup
 	 */
 }

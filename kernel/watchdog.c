@@ -27,6 +27,8 @@
 #include <asm/irq_regs.h>
 #include <linux/perf_event.h>
 
+#include <mach/sec_addon.h>
+
 int watchdog_enabled = 1;
 int __read_mostly watchdog_thresh = 10;
 
@@ -113,7 +115,7 @@ static unsigned long get_timestamp(int this_cpu)
 	return cpu_clock(this_cpu) >> 30LL;  /* 2^30 ~= 10^9 */
 }
 
-static unsigned long get_sample_period(void)
+static u64 get_sample_period(void)
 {
 	/*
 	 * convert watchdog_thresh from seconds to ns
@@ -121,7 +123,7 @@ static unsigned long get_sample_period(void)
 	 * increment before the hardlockup detector generates
 	 * a warning
 	 */
-	return get_softlockup_thresh() * (NSEC_PER_SEC / 5);
+	return get_softlockup_thresh() * ((u64)NSEC_PER_SEC / 5);
 }
 
 /* Commands for resetting the watchdog */
@@ -260,6 +262,8 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	unsigned long touch_ts = __this_cpu_read(watchdog_touch_ts);
 	struct pt_regs *regs = get_irq_regs();
 	int duration;
+
+	sec_debug_wdtkick_regs_log(regs);
 
 	/* kick the hardlockup detector */
 	watchdog_interrupt_count();

@@ -897,11 +897,12 @@ static int __init hsi_platform_device_probe(struct platform_device *pd)
 	if (err == -EBUSY) {
 		/* PM framework init is late_initcall, so it may not yet be */
 		/* initialized, so be prepared to retry later on open. */
-		dev_warn(&pd->dev, "HSI FClk default value: %ld. \n", pdata->default_hsi_fclk);
+		dev_warn(&pd->dev, "Cannot set HSI FClk to default value: %ld. "
+			 "Will retry on next open\n", pdata->default_hsi_fclk);
 	} else if (err) {
 		dev_err(&pd->dev, "%s: Error %d setting HSI FClk to %ld.\n",
 				__func__, err, pdata->default_hsi_fclk);
-		goto rollback3;
+		goto rollback4;
 	} else {
 		hsi_ctrl->hsi_fclk_current = pdata->default_hsi_fclk;
 	}
@@ -910,6 +911,8 @@ static int __init hsi_platform_device_probe(struct platform_device *pd)
 
 	return 0;
 
+rollback4:
+	unregister_hsi_devices(hsi_ctrl);
 rollback3:
 	hsi_debug_remove_ctrl(hsi_ctrl);
 rollback2:

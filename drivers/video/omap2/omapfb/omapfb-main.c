@@ -812,8 +812,12 @@ static int omapfb_release(struct fb_info *fbi, int user)
 {
 	struct omapfb_info *ofbi = FB2OFB(fbi);
 	struct omapfb2_device *fbdev = ofbi->fbdev;
+	struct omap_dss_device *display = fb2display(fbi);
 
-	omapfb_disable_vsync(fbdev);
+	if (!display)
+		return -ENODEV;
+
+	omapfb_enable_vsync(fbdev, display->channel, false);
 
 	return 0;
 }
@@ -1342,8 +1346,9 @@ static int omapfb_blank(int blank, struct fb_info *fbi)
 				r = display->driver->enable(display);
 		}
 
-		if (fbdev->vsync_active)
-			omapfb_enable_vsync(fbdev);
+		if (fbdev->vsync_active &&
+			(display->state == OMAP_DSS_DISPLAY_ACTIVE))
+			omapfb_enable_vsync(fbdev, display->channel, true);
 
 		break;
 
@@ -1355,7 +1360,7 @@ static int omapfb_blank(int blank, struct fb_info *fbi)
 	case FB_BLANK_POWERDOWN:
 
 		if (fbdev->vsync_active)
-			omapfb_disable_vsync(fbdev);
+			omapfb_enable_vsync(fbdev, display->channel, false);
 
 		if (display->state != OMAP_DSS_DISPLAY_ACTIVE)
 			goto exit;
@@ -2163,6 +2168,8 @@ static int omapfb_get_recommended_bpp(struct omapfb2_device *fbdev,
 {
 	int i;
 
+	BUG_ON(dssdev->driver->get_recommended_bpp == NULL);
+
 	for (i = 0; i < fbdev->num_bpp_overrides; ++i) {
 		if (dssdev == fbdev->bpp_overrides[i].dssdev)
 			return fbdev->bpp_overrides[i].bpp;
@@ -2314,18 +2321,31 @@ static void omapfb_vsync_isr(void *data, u32 mask)
 	schedule_work(&fbdev->vsync_work);
 }
 
-int omapfb_enable_vsync(struct omapfb2_device *fbdev)
+int omapfb_enable_vsync(struct omapfb2_device *fbdev, enum omap_channel ch,
+		 bool enable)
 {
-	int r;
-	/* TODO: should determine correct IRQ like dss_mgr_wait_for_vsync does*/
-	r = omap_dispc_register_isr(omapfb_vsync_isr, fbdev, DISPC_IRQ_VSYNC2);
+	int r = 0;
+	const u32 masks[] = {
+		DISPC_IRQ_VSYNC,
+		DISPC_IRQ_EVSYNC_EVEN,
+		DISPC_IRQ_VSYNC2
+	};
+	if (ch > OMAP_DSS_CHANNEL_LCD2) {
+		pr_warn("%s wrong channel number\n", __func__);
+		return -ENODEV;
+	}
+
+	if (enable)
+		r = omap_dispc_register_isr(omapfb_vsync_isr, fbdev,
+				masks[ch]);
+	else
+		r = omap_dispc_unregister_isr(omapfb_vsync_isr, fbdev,
+				masks[ch]);
 	return r;
+
+
 }
 
-void omapfb_disable_vsync(struct omapfb2_device *fbdev)
-{
-	omap_dispc_unregister_isr(omapfb_vsync_isr, fbdev, DISPC_IRQ_VSYNC2);
-}
 
 static int omapfb_probe(struct platform_device *pdev)
 {

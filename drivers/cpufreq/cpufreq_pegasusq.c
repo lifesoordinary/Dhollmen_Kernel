@@ -150,42 +150,42 @@ static unsigned int get_nr_run_avg(void)
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_SAMPLING_DOWN_FACTOR		(2)
-#define MAX_SAMPLING_DOWN_FACTOR		(100000)
+#define DEF_SAMPLING_DOWN_FACTOR	(2)
+#define MAX_SAMPLING_DOWN_FACTOR	(100000)
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL	(5)
-#define DEF_FREQUENCY_UP_THRESHOLD		(80)
+#define DEF_FREQUENCY_UP_THRESHOLD	(80)
 
 /* for multiple freq_step */
-#define DEF_UP_THRESHOLD_DIFF	(5)
+#define DEF_UP_THRESHOLD_DIFF		(5)
 
 #define DEF_FREQUENCY_MIN_SAMPLE_RATE	(10000)
-#define MIN_FREQUENCY_UP_THRESHOLD		(11)
-#define MAX_FREQUENCY_UP_THRESHOLD		(100)
-#define DEF_SAMPLING_RATE				(40000)
-#define MIN_SAMPLING_RATE				(10000)
-#define MAX_HOTPLUG_RATE				(40u)
+#define MIN_FREQUENCY_UP_THRESHOLD	(11)
+#define MAX_FREQUENCY_UP_THRESHOLD	(100)
+#define DEF_SAMPLING_RATE		(40000)
+#define MIN_SAMPLING_RATE		(10000)
+#define MAX_HOTPLUG_RATE		(40u)
 
-#define DEF_MAX_CPU_LOCK				(0)
-#define DEF_MIN_CPU_LOCK				(0)
-#define DEF_CPU_UP_FREQ					(600000)
-#define DEF_CPU_DOWN_FREQ				(300000)
-#define DEF_UP_NR_CPUS					(1)
-#define DEF_CPU_UP_RATE					(10)
-#define DEF_CPU_DOWN_RATE				(20)
-#define DEF_FREQ_STEP					(40)
+#define DEF_MAX_CPU_LOCK		(0)
+#define DEF_MIN_CPU_LOCK		(0)
+#define DEF_CPU_UP_FREQ			(600000)
+#define DEF_CPU_DOWN_FREQ		(300000)
+#define DEF_UP_NR_CPUS			(1)
+#define DEF_CPU_UP_RATE			(10)
+#define DEF_CPU_DOWN_RATE		(20)
+#define DEF_FREQ_STEP			(40)
 /* for multiple freq_step */
-#define DEF_FREQ_STEP_DEC				(13)
+#define DEF_FREQ_STEP_DEC		(13)
 
-#define DEF_START_DELAY					(0)
+#define DEF_START_DELAY			(0)
 
-#define UP_THRESHOLD_AT_MIN_FREQ		(40)
-#define FREQ_FOR_RESPONSIVENESS			(300000)
+#define UP_THRESHOLD_AT_MIN_FREQ	(40)
+#define FREQ_FOR_RESPONSIVENESS		(300000)
 /* for fast decrease */
-#define FREQ_FOR_FAST_DOWN				(1200000)
-#define UP_THRESHOLD_AT_FAST_DOWN		(95)
+#define FREQ_FOR_FAST_DOWN		(1216000)
+#define UP_THRESHOLD_AT_FAST_DOWN	(95)
 
-#define HOTPLUG_DOWN_INDEX				(0)
-#define HOTPLUG_UP_INDEX				(1)
+#define HOTPLUG_DOWN_INDEX		(0)
+#define HOTPLUG_UP_INDEX		(1)
 
 static int hotplug_rq[4][2] = {
 	{0, 200}, {150, 250}, {300, 350}, {400, 0}
@@ -407,8 +407,7 @@ struct cpu_usage_history {
 
 struct cpu_usage_history *hotplug_history;
 
-static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu,
-						  cputime64_t *wall)
+static inline cputime64_t get_cpu_idle_time_jiffy(unsigned int cpu, cputime64_t *wall)
 {
 	cputime64_t idle_time;
 	cputime64_t cur_wall_time;
@@ -440,8 +439,7 @@ static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
 	return idle_time;
 }
 
-static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
-					      cputime64_t *wall)
+static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
 {
 	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
 
@@ -453,8 +451,7 @@ static inline cputime64_t get_cpu_iowait_time(unsigned int cpu,
 
 /************************** sysfs interface ************************/
 
-static ssize_t show_sampling_rate_min(struct kobject *kobj,
-				      struct attribute *attr, char *buf)
+static ssize_t show_sampling_rate_min(struct kobject *kobj, struct attribute *attr, char *buf)
 {
 	return sprintf(buf, "%u\n", min_sampling_rate);
 }
@@ -485,8 +482,7 @@ show_one(min_cpu_lock, min_cpu_lock);
 show_one(dvfs_debug, dvfs_debug);
 show_one(up_threshold_at_min_freq, up_threshold_at_min_freq);
 show_one(freq_for_responsiveness, freq_for_responsiveness);
-static ssize_t show_hotplug_lock(struct kobject *kobj,
-				struct attribute *attr, char *buf)
+static ssize_t show_hotplug_lock(struct kobject *kobj, struct attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", atomic_read(&g_hotplug_lock));
 }
@@ -782,7 +778,7 @@ static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
 
 	ret = cpufreq_pegasusq_cpu_lock(input);
 	if (ret) {
-		printk(KERN_ERR "[HOTPLUG] already locked with smaller value %d < %d\n",
+		printk(KERN_ERR "[PEGASUSQ] already locked with smaller value %d < %d\n",
 			atomic_read(&g_hotplug_lock), input);
 		return ret;
 	}
@@ -1024,7 +1020,7 @@ static int check_up(void)
 			if (min_avg_load < 65)
 				return 0;
 		}
-		printk(KERN_ERR "[HOTPLUG IN] %s %d>=%d && %d>%d\n",
+		printk(KERN_ERR "[PEGASUSQ IN] %s %d>=%d && %d>%d\n",
 			__func__, min_freq, up_freq, min_rq_avg, up_rq);
 		hotplug_history->num_hist = 0;
 		return 1;
@@ -1085,7 +1081,7 @@ static int check_down(void)
 
 	if ((max_freq <= down_freq && max_rq_avg <= down_rq)
 		|| (online >= 3 && max_avg_load < 30)) {
-		printk(KERN_ERR "[HOTPLUG OUT] %s %d<=%d && %d<%d\n",
+		printk(KERN_ERR "[PEGASUSQ OUT] %s %d<=%d && %d<%d\n",
 			__func__, max_freq, down_freq, max_rq_avg, down_rq);
 		hotplug_history->num_hist = 0;
 		return 1;

@@ -644,6 +644,8 @@ static int suspend_set_state(struct regulator_dev *rdev,
 	 * configurable.
 	 */
 	if (!rstate->enabled && !rstate->disabled) {
+		if (can_set_state)
+			rdev_warn(rdev, "No configuration\n");
 		return 0;
 	}
 

@@ -991,7 +991,7 @@ static ssize_t store_hispeed_freq(struct kobject *kobj,
 	return count;
 }
 
-static struct global_attr hispeed_freq_attr = __ATTR(hispeed_freq, 0644,
+static struct global_attr hispeed_freq_attr = __ATTR(hispeed_freq, 0664,
 		show_hispeed_freq, store_hispeed_freq);
 
 // inc_cpu_load

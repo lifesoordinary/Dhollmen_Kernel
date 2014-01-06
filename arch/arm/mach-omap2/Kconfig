@@ -476,6 +476,14 @@ config OMAP4430_TOP_GPU
       This config, set the GPU frequency in the boot at 384 MHz,
 	  allowing raise ir later until overclock limit.
 
+config OMAP4_VOLTAGE_LEVEL
+	bool "Enables OMAP4 Voltage level changes"
+ 	depends on ARCH_OMAP4
+	default n
+	help
+      This config allows you to change the voltages used
+      for a given frequency
+	
 endmenu
 
 endif

@@ -88,6 +88,8 @@ static int wm8958_dsp2_fw(struct snd_soc_codec *codec, const char *name,
 
 	if (check) {
 		memcpy(&data64, fw->data + 24, sizeof(u64));
+		dev_info(codec->dev, "%s timestamp %llx\n",
+			 name, be64_to_cpu(data64));
 	} else {
 		snd_soc_write(codec, 0x102, 0x2);
 		snd_soc_write(codec, 0x900, 0x2);
@@ -126,6 +128,7 @@ static int wm8958_dsp2_fw(struct snd_soc_codec *codec, const char *name,
 			str = kzalloc(block_len + 1, GFP_KERNEL);
 			if (str) {
 				memcpy(str, data + 8, block_len);
+				dev_info(codec->dev, "%s: %s\n", name, str);
 				kfree(str);
 			} else {
 				dev_err(codec->dev, "Out of memory\n");
@@ -164,6 +167,8 @@ static int wm8958_dsp2_fw(struct snd_soc_codec *codec, const char *name,
 
 	if (!check) {
 		wm8994->cur_fw = fw;
+	} else {
+		dev_info(codec->dev, "%s: got firmware\n", name);
 	}
 
 	goto ok;

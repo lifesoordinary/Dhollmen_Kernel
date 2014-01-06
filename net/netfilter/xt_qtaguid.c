@@ -434,6 +434,7 @@ struct uid_tag_data *get_uid_data(uid_t uid, bool *found_res)
 
 	utd_entry = kzalloc(sizeof(*utd_entry), GFP_ATOMIC);
 	if (!utd_entry) {
+		pr_err("qtaguid: get_uid_data(%u): tag data alloc failed\n", uid);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -740,6 +741,7 @@ static void iface_create_proc_worker(struct work_struct *work)
 	/* iface_entries are not deleted, so safe to manipulate. */
 	proc_entry = proc_mkdir(new_iface->ifname, iface_stat_procdir);
 	if (IS_ERR_OR_NULL(proc_entry)) {
+		pr_err("qtaguid: iface_stat: create_proc(): alloc failed.\n");
 		kfree(isw);
 		return;
 	}
@@ -789,10 +791,12 @@ static struct iface_stat *iface_alloc(struct net_device *net_dev)
 
 	new_iface = kzalloc(sizeof(*new_iface), GFP_ATOMIC);
 	if (new_iface == NULL) {
+		pr_err("qtaguid: iface_stat: create(%s): iface_stat alloc failed\n", net_dev->name);
 		return NULL;
 	}
 	new_iface->ifname = kstrdup(net_dev->name, GFP_ATOMIC);
 	if (new_iface->ifname == NULL) {
+		pr_err("qtaguid: iface_stat: create(%s): ifname alloc failed\n", net_dev->name);
 		kfree(new_iface);
 		return NULL;
 	}
@@ -806,6 +810,7 @@ static struct iface_stat *iface_alloc(struct net_device *net_dev)
 	 */
 	isw = kmalloc(sizeof(*isw), GFP_ATOMIC);
 	if (!isw) {
+		pr_err("qtaguid: iface_stat: create(%s): work alloc failed\n", new_iface->ifname);
 		_iface_stat_set_active(new_iface, net_dev, false);
 		kfree(new_iface->ifname);
 		kfree(new_iface);
@@ -859,6 +864,7 @@ static void iface_stat_create(struct net_device *net_dev,
 	struct iface_stat *new_iface;
 
 	if (!net_dev) {
+		pr_err("qtaguid: iface_stat: create(): no net dev\n");
 		return;
 	}
 
@@ -866,6 +872,7 @@ static void iface_stat_create(struct net_device *net_dev,
 	if (!ifa) {
 		in_dev = in_dev_get(net_dev);
 		if (!in_dev) {
+			pr_err("qtaguid: iface_stat: create(%s): no inet dev\n", ifname);
 			return;
 		}
 		for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
@@ -908,12 +915,14 @@ static void iface_stat_create_ipv6(struct net_device *net_dev,
 	int addr_type;
 
 	if (!net_dev) {
+		pr_err("qtaguid: iface_stat: create6(): no net dev!\n");
 		return;
 	}
 	ifname = net_dev->name;
 
 	in_dev = in_dev_get(net_dev);
 	if (!in_dev) {
+		pr_err("qtaguid: iface_stat: create6(%s): no inet dev\n", ifname);
 		return;
 	}
 
@@ -1066,6 +1075,8 @@ static void iface_stat_update_from_skb(const struct sk_buff *skb,
 		pr_err("qtaguid[%d]: %s(): no dev->name?!!\n",
 		       par->hooknum, __func__);
 		BUG();
+	} else {
+		int proto = ipx_proto(skb, par);
 	}
 
 	spin_lock_bh(&iface_stat_list_lock);
@@ -1285,6 +1296,7 @@ static int __init iface_stat_init(struct proc_dir_entry *parent_procdir)
 
 	iface_stat_procdir = proc_mkdir(iface_stat_procdirname, parent_procdir);
 	if (!iface_stat_procdir) {
+		pr_err("qtaguid: iface_stat: init failed to create proc entry\n");
 		err = -1;
 		goto err;
 	}
@@ -1293,6 +1305,7 @@ static int __init iface_stat_init(struct proc_dir_entry *parent_procdir)
 						    proc_iface_perms,
 						    parent_procdir);
 	if (!iface_stat_all_procfile) {
+		pr_err("qtaguid: iface_stat: init failed to create stat_old proc entry\n");
 		err = -1;
 		goto err_zap_entry;
 	}
@@ -1303,6 +1316,7 @@ static int __init iface_stat_init(struct proc_dir_entry *parent_procdir)
 						    proc_iface_perms,
 						    parent_procdir);
 	if (!iface_stat_fmt_procfile) {
+		pr_err("qtaguid: iface_stat: init failed to create stat_all proc entry\n");
 		err = -1;
 		goto err_zap_all_stats_entry;
 	}
@@ -1312,15 +1326,18 @@ static int __init iface_stat_init(struct proc_dir_entry *parent_procdir)
 
 	err = register_netdevice_notifier(&iface_netdev_notifier_blk);
 	if (err) {
+		pr_err("qtaguid: iface_stat: init failed to register dev event handler\n");
 		goto err_zap_all_stats_entries;
 	}
 	err = register_inetaddr_notifier(&iface_inetaddr_notifier_blk);
 	if (err) {
+		pr_err("qtaguid: iface_stat: init failed to register ipv4 dev event handler\n");
 		goto err_unreg_nd;
 	}
 
 	err = register_inet6addr_notifier(&iface_inet6addr_notifier_blk);
 	if (err) {
+		pr_err("qtaguid: iface_stat: init failed to register ipv6 dev event handler\n");
 		goto err_unreg_ip4_addr;
 	}
 	return 0;
@@ -1642,12 +1659,16 @@ static int ctrl_cmd_delete(const char *input)
 		goto err;
 	}
 	if (!valid_atag(acct_tag)) {
+		pr_info("qtaguid: ctrl_delete(%s): invalid tag\n", input);
 		res = -EINVAL;
 		goto err;
 	}
 	if (argc < 3) {
 		uid = current_fsuid();
 	} else if (!can_impersonate_uid(uid)) {
+		pr_info("qtaguid: ctrl_delete(%s): "
+			"insufficient priv from pid=%u tgid=%u uid=%u\n",
+			input, current->pid, current->tgid, current_fsuid());
 		res = -EPERM;
 		goto err;
 	}
@@ -1762,10 +1783,14 @@ static int ctrl_cmd_counter_set(const char *input)
 		goto err;
 	}
 	if (counter_set < 0 || counter_set >= IFS_MAX_COUNTER_SETS) {
+		pr_info("qtaguid: ctrl_counterset(%s): invalid counter_set range\n", input);
 		res = -EINVAL;
 		goto err;
 	}
 	if (!can_manipulate_uids()) {
+		pr_info("qtaguid: ctrl_counterset(%s): "
+			"insufficient priv from pid=%u tgid=%u uid=%u\n",
+			input, current->pid, current->tgid, current_fsuid());
 		res = -EPERM;
 		goto err;
 	}
@@ -1777,6 +1802,7 @@ static int ctrl_cmd_counter_set(const char *input)
 		tcs = kzalloc(sizeof(*tcs), GFP_ATOMIC);
 		if (!tcs) {
 			spin_unlock_bh(&tag_counter_set_list_lock);
+			pr_err("qtaguid: ctrl_counterset(%s): failed to alloc counter set\n", input);
 			res = -ENOMEM;
 			goto err;
 		}
@@ -1859,6 +1885,7 @@ static int ctrl_cmd_tag(const char *input)
 		sock_tag_entry = kzalloc(sizeof(*sock_tag_entry),
 					 GFP_ATOMIC);
 		if (!sock_tag_entry) {
+			pr_err("qtaguid: ctrl_tag(%s): socket tag alloc failed\n", input);
 			spin_unlock_bh(&sock_tag_list_lock);
 			res = -ENOMEM;
 			goto err_tag_unref_put;
@@ -1876,7 +1903,14 @@ static int ctrl_cmd_tag(const char *input)
 		 * At first, we want to catch user-space code that is not
 		 * opening the /dev/xt_qtaguid.
 		 */
-		if (!IS_ERR_OR_NULL(pqd_entry))
+		if (IS_ERR_OR_NULL(pqd_entry))
+			pr_warn_once(
+				"qtaguid: %s(): "
+				"User space forgot to open /dev/xt_qtaguid? "
+				"pid=%u tgid=%u uid=%u\n", __func__,
+				current->pid, current->tgid,
+				current_fsuid());
+		else
 			list_add(&sock_tag_entry->list,
 				 &pqd_entry->sock_tag_list);
 		spin_unlock_bh(&uid_tag_data_tree_lock);
@@ -1945,7 +1979,12 @@ static int ctrl_cmd_untag(const char *input)
 	 * At first, we want to catch user-space code that is not
 	 * opening the /dev/xt_qtaguid.
 	 */
-	if (!IS_ERR_OR_NULL(pqd_entry))
+	if (IS_ERR_OR_NULL(pqd_entry))
+		pr_warn_once("qtaguid: %s(): "
+			     "User space forgot to open /dev/xt_qtaguid? "
+			     "pid=%u tgid=%u uid=%u\n", __func__,
+			     current->pid, current->tgid, current_fsuid());
+	else
 		list_del(&sock_tag_entry->list);
 	spin_unlock_bh(&uid_tag_data_tree_lock);
 	/*
@@ -2213,12 +2252,19 @@ static int qtudev_open(struct inode *inode, struct file *file)
 	pqd_entry = proc_qtu_data_tree_search(&proc_qtu_data_tree,
 					      current->tgid);
 	if (pqd_entry) {
+		pr_err("qtaguid: qtudev_open(): %u/%u %u "
+		       "%s already opened\n",
+		       current->pid, current->tgid, current_fsuid(),
+		       QTU_DEV_NAME);
 		res = -EBUSY;
 		goto err_unlock_free_utd;
 	}
 
 	new_pqd_entry = kzalloc(sizeof(*new_pqd_entry), GFP_ATOMIC);
 	if (!new_pqd_entry) {
+		pr_err("qtaguid: qtudev_open(): %u/%u %u: "
+		       "proc data alloc failed\n",
+		       current->pid, current->tgid, current_fsuid());
 		res = -ENOMEM;
 		goto err_unlock_free_utd;
 	}
@@ -2326,6 +2372,7 @@ static int __init qtaguid_proc_register(struct proc_dir_entry **res_procdir)
 	int ret;
 	*res_procdir = proc_mkdir(module_procdirname, init_net.proc_net);
 	if (!*res_procdir) {
+		pr_err("qtaguid: failed to create proc/.../xt_qtaguid\n");
 		ret = -ENOMEM;
 		goto no_dir;
 	}
@@ -2333,6 +2380,7 @@ static int __init qtaguid_proc_register(struct proc_dir_entry **res_procdir)
 	xt_qtaguid_ctrl_file = create_proc_entry("ctrl", proc_ctrl_perms,
 						*res_procdir);
 	if (!xt_qtaguid_ctrl_file) {
+		pr_err("qtaguid: failed to create xt_qtaguid/ctrl file\n");
 		ret = -ENOMEM;
 		goto no_ctrl_entry;
 	}
@@ -2342,6 +2390,7 @@ static int __init qtaguid_proc_register(struct proc_dir_entry **res_procdir)
 	xt_qtaguid_stats_file = create_proc_entry("stats", proc_stats_perms,
 						*res_procdir);
 	if (!xt_qtaguid_stats_file) {
+		pr_err("qtaguid: failed to create xt_qtaguid/stats file\n");
 		ret = -ENOMEM;
 		goto no_stats_entry;
 	}

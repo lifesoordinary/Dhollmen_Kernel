@@ -1,8 +1,8 @@
 VERSION = 3
 PATCHLEVEL = 0
-SUBLEVEL = 39
+SUBLEVEL = 101
 EXTRAVERSION =
-NAME = Sneaky Weasel
+NAME = Sodden Ben Lomond
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -192,8 +192,8 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
-ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= $(ARM_CROSS_COMPILE)
+ARCH		?=arm
+CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -245,8 +245,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
-HOSTCXXFLAGS = -O2
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fno-unswitch-loops -fno-inline-functions -fomit-frame-pointer
+HOSTCXXFLAGS = -O2 -fno-unswitch-loops -fno-inline-functions
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -345,24 +345,56 @@ KALLSYMS	= scripts/kallsyms
 PERL		= perl
 CHECK		= sparse
 
-CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ -Wbitwise -Wno-return-void $(CF)
-CFLAGS_MODULE   = -DMODULE -pipe -mcpu=cortex-a9 -mfpu=neon -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -fipa-cp-clone -fsingle-precision-constant
-CFLAGS_KERNEL	= -O2 -pipe -mtune=cortex-a9 -march=armv7-a -mfpu=vfpv3 -mfloat-abi=softfp -ftree-vectorize
-AFLAGS_MODULE   =
+CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__  -Wbitwise -Wno-return-void $(CF)
+MODFLAGS        = -DMODULE \
+                  -march=armv7-a \
+                  -mfpu=neon \
+                  -mtune=cortex-a9 \
+                  -O2 \
+                  -fno-unswitch-loops \
+                  -fno-inline-functions
+
+ifdef CONFIG_GCC_48_FIXES
+  MODFLAGS  +=  -fno-aggressive-loop-optimizations  -Wno-sizeof-pointer-memaccess
+endif
+
+CFLAGS_MODULE   = $(MODFLAGS)
+AFLAGS_MODULE   = $(MODFLAGS)
+LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
+CFLAGS_KERNEL  =  -march=armv7-a \
+                  -mfpu=neon \
+                  -mtune=cortex-a9 \
+                  -O2
+
+ifdef CONFIG_GCC_48_FIXES
+CFLAGS_KERNEL  +=  -fno-aggressive-loop-optimizations -Wno-sizeof-pointer-memaccess
+endif
+
 AFLAGS_KERNEL	=
-LDFLAGS_MODULE  =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
+# Needed to be compatible with the O= option
 LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
                    -Iarch/$(hdr-arch)/include/generated -Iinclude \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
                    -include include/generated/autoconf.h
-                   
-KBUILD_CPPFLAGS       := -D__KERNEL__
-KBUILD_CFLAGS         := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -Wno-format-security \
-                         -fno-strict-aliasing -fno-common -fno-delete-null-pointer-checks \
-                         -Werror-implicit-function-declaration $(CFLAGS_KERNEL)		   
+
+KBUILD_CPPFLAGS := -D__KERNEL__
+ifdef CONFIG_GCC_48_FIXES
+  KBUILD_CPPFLAGS  +=  -fno-aggressive-loop-optimizations -Wno-sizeof-pointer-memaccess
+endif
+
+KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
+		   -fno-strict-aliasing -fno-common \
+		   -Werror-implicit-function-declaration \
+		   -Wno-format-security \
+		   -fno-delete-null-pointer-checks
+
+ifdef CONFIG_GCC_48_FIXES
+  KBUILD_CFLAGS  +=  -fno-aggressive-loop-optimizations -Wno-sizeof-pointer-memaccess
+endif
+
 KBUILD_AFLAGS_KERNEL  :=
 KBUILD_CFLAGS_KERNEL  :=
 KBUILD_AFLAGS         := -D__ASSEMBLY__
@@ -554,8 +586,11 @@ all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
+ifdef CONFIG_OPTIMIZE_SIZE_GCC_48_FIXES
+KBUILD_CFLAGS  +=  -Wno-maybe-uninitialized -fno-aggressive-loop-optimizations -Wno-sizeof-pointer-memaccess
+endif
 else
-KBUILD_CFLAGS	+= -O2
+KBUILD_CFLAGS	+= -O2 -fno-unswitch-loops -fno-inline-functions
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
@@ -588,7 +623,10 @@ endif
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g
-KBUILD_AFLAGS	+= -gdwarf-2
+ifdef CONFIG_GCC_48_FIXES
+KBUILD_CFLAGS  += -gdwarf-2
+endif
+KBUILD_AFLAGS  += -gdwarf-2
 endif
 
 ifdef CONFIG_DEBUG_INFO_REDUCED

@@ -196,10 +196,13 @@ static int max17042_get_vcell(struct i2c_client *client)
 static int max17042_get_soc(struct i2c_client *client)
 {
 	u16 data;
+	u16 raw_soc;
 	u16 soc;
 
 	data = max17042_read_reg(client, MAX17042_RepSOC);
-	soc = clamp((data/256), 0, 100);
+	raw_soc = ((data >> 8) * 100) + ((data & 0xFF) * 100) / 256;
+	soc = min((raw_soc * 100) / 9800, 100);
+
 
 	return soc;
 }
@@ -405,10 +408,12 @@ static void max17042_set_battery_type(struct max17042_chip *chip)
 		chip->info.battery_type = SDI_BATTERY_TYPE;
 	}
 
+#if 0
 	pr_info("%s : DesignCAP(0x%04x), Battery type(%s)\n",
 			__func__, data,
 			chip->info.battery_type == SDI_BATTERY_TYPE ?
 			"SDI_TYPE_BATTERY" : "BYD_TYPE_BATTERY");
+#endif
 
 	switch (chip->info.battery_type) {
 	case BYD_BATTERY_TYPE:

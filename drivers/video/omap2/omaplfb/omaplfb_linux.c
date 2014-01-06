@@ -215,8 +215,12 @@ OMAPLFB_ERROR OMAPLFBGetLibFuncAddr (char *szFunctionName, PFN_DC_GET_PVRJTABLE 
 
 void OMAPLFBQueueBufferForSwap(OMAPLFB_SWAPCHAIN *psSwapChain, OMAPLFB_BUFFER *psBuffer)
 {
-	queue_work(psSwapChain->psWorkQueue, &psBuffer->sWork);
+	int res = queue_work(psSwapChain->psWorkQueue, &psBuffer->sWork);
 
+	if (res == 0)
+	{
+		printk(KERN_WARNING DRIVER_PREFIX ": %s: Device %u: Buffer already on work queue\n", __FUNCTION__, psSwapChain->uiFBDevID);
+	}
 }
 
 static void WorkQueueHandler(struct work_struct *psWork)
@@ -242,6 +246,7 @@ OMAPLFB_ERROR OMAPLFBCreateSwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 	if (psSwapChain->psWorkQueue == NULL)
 	{
 		printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: Couldn't create workqueue\n", __FUNCTION__, psSwapChain->uiFBDevID);
+
 		return (OMAPLFB_ERROR_INIT_FAILURE);
 	}
 
@@ -350,6 +355,20 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 }
 
 #if !defined(PVR_OMAPLFB_DRM_FB) || defined(DEBUG)
+static OMAPLFB_BOOL OMAPLFBValidUpdateMode(enum OMAP_UPDATE_MODE eMode)
+{
+	switch (eMode)
+	{
+		case OMAP_UPDATE_MODE_AUTO:
+		case OMAP_UPDATE_MODE_MANUAL:
+		case OMAP_UPDATE_MODE_DISABLED:
+			return OMAPLFB_TRUE;
+		default:
+			break;
+	}
+
+	return OMAPLFB_FALSE;
+}
 
 static OMAPLFB_UPDATE_MODE OMAPLFBFromUpdateMode(enum OMAP_UPDATE_MODE eMode)
 {

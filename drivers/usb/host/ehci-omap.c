@@ -504,7 +504,6 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_get_sync(dev->parent);
-	*pdata->usbhs_update_sar = 1;
 
 	/*
 	 * An undocumented "feature" in the OMAP3 EHCI controller,
@@ -660,8 +659,6 @@ static int ehci_omap_bus_resume(struct usb_hcd *hcd)
 	if (dev->parent && pm_runtime_suspended(dev->parent))
 		pm_runtime_get_sync(dev->parent);
 
-	*pdata->usbhs_update_sar = 1;
-
 	return ehci_bus_resume(hcd);
 }
 
@@ -719,7 +716,7 @@ static struct hc_driver ehci_omap_hc_driver = {
 	.clear_tt_buffer_complete = ehci_clear_tt_buffer_complete,
 };
 
-MODULE_ALIAS("platform:omap-ehci");
+MODULE_ALIAS("platform:ehci-omap");
 MODULE_AUTHOR("Texas Instruments, Inc.");
 MODULE_AUTHOR("Felipe Balbi <felipe.balbi@nokia.com>");
 

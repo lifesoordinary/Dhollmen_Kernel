@@ -344,10 +344,11 @@ void __init omap4_espresso10_input_init(void)
 
 	espresso_create_sec_key_dev();
 
+#if defined(CONFIG_SEC_DEBUG)
 	if (sec_debug_get_level()) {
 		espresso_gpio_keypad_keys_info_high.flags |= GPIOEDF_PRINT_KEYS;
 		espresso_gpio_keypad_keys_info_low.flags |= GPIOEDF_PRINT_KEYS;
 	}
-
+#endif
 	platform_device_register(&espresso_gpio_keypad_device);
 }

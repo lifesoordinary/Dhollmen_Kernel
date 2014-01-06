@@ -37,13 +37,13 @@
 #define FAST_POLL	(1 * 40)
 #define SLOW_POLL	(30 * 60)
 
-#define STATUS_BATT_CHARGABLE       0x0
-#define STATUS_BATT_FULL			0x1
-#define STATUS_BATT_CHARGE_TIME_OUT	0x2
-#define STATUS_BATT_ABNOMAL_TEMP	0x4
+#define STATUS_BATT_CHARGABLE        0x0
+#define STATUS_BATT_FULL			 0x1
+#define STATUS_BATT_CHARGE_TIME_OUT	 0x2
+#define STATUS_BATT_ABNOMAL_TEMP	 0x4
 
-#define STABLE_LOW_BATTERY_DIFF			3
-#define STABLE_LOW_BATTERY_DIFF_LOWBATT	1
+#define STABLE_LOW_BATTERY_DIFF			 3
+#define STABLE_LOW_BATTERY_DIFF_LOWBATT	 1
 
 struct charger_device_info {
 	struct device		*dev;
@@ -289,14 +289,15 @@ static void batman_get_temp_status(struct charger_device_info *di)
 		di->bat_info.temp =
 			di->pdata->get_fuel_value(READ_FG_TEMP);
 	}
-
-	if (di->bat_info.temp >= di->pdata->high_block_temp) {
-		di->bat_info.health = POWER_SUPPLY_HEALTH_OVERHEAT;
-	} else if (di->bat_info.temp <= di->pdata->high_recover_temp &&
+	if (di->is_cable_attached) {
+		if (di->bat_info.temp >= di->pdata->high_block_temp) {
+			di->bat_info.health = POWER_SUPPLY_HEALTH_OVERHEAT;
+		} else if (di->bat_info.temp <= di->pdata->high_recover_temp &&
 			di->bat_info.temp >= di->pdata->low_recover_temp) {
-		di->bat_info.health = POWER_SUPPLY_HEALTH_GOOD;
-	} else if (di->bat_info.temp <= di->pdata->low_block_temp) {
-		di->bat_info.health = POWER_SUPPLY_HEALTH_COLD;
+			di->bat_info.health = POWER_SUPPLY_HEALTH_GOOD;
+		} else if (di->bat_info.temp <= di->pdata->low_block_temp) {
+			di->bat_info.health = POWER_SUPPLY_HEALTH_COLD;
+		}
 	}
 }
 
@@ -419,7 +420,7 @@ static void charger_detect_work(struct work_struct *work)
 static int batman_get_bat_level(struct charger_device_info *di)
 {
 	int soc = 0;
-
+	int prev_soc = di->bat_info.soc;
 	/* check VFcapacity every five minutes */
 	if (!(di->fg_chk_cnt++ % 10)) {
 		di->pdata->check_vf_fullcap_range();
@@ -431,6 +432,12 @@ static int batman_get_bat_level(struct charger_device_info *di)
 			di->pdata->get_fuel_value(READ_FG_SOC);
 		if (!di->is_full_charged && soc > 99 && di->is_cable_attached)
 			soc = 99;
+
+		/* The following condition is a handling in software for current soc
+		   to not be less than prev_soc when charging source is detached*/
+		if(prev_soc < soc && prev_soc > 98 && !di->is_cable_attached)
+			soc=prev_soc;
+
 		di->bat_info.soc = soc;
 	}
 
@@ -522,12 +529,13 @@ static int otg_handle_notification(struct notifier_block *nb,
 
 	switch (event) {
 	case USB_EVENT_VBUS_CHARGER:
-		pr_info("Battery manager: Charger Connected\n");
+		pr_info("[Battery manager] Charger is connected\n");
 		di->is_low_batt_alarm = false;
 		wake_lock(&di->cable_wake_lock);
 		break;
 	case USB_EVENT_CHARGER_NONE:
-		pr_info("Battery manager: Charger Disconnect\n");
+		pr_info("[Battery manager] Charger is disconnect\n");
+		di->bat_info.health = POWER_SUPPLY_HEALTH_GOOD;
 		wake_unlock(&di->cable_wake_lock);
 		break;
 	default:

@@ -159,7 +159,6 @@ static void wm8958_micd_set_rate(struct snd_soc_codec *codec)
 
 static int wm8994_readable(struct snd_soc_codec *codec, unsigned int reg)
 {
-	struct wm8994_priv *wm8994 = snd_soc_codec_get_drvdata(codec);
 	struct wm8994 *control = codec->control_data;
 
 	switch (reg) {
@@ -2857,6 +2856,7 @@ static int wm8994_aif3_hw_params(struct snd_pcm_substream *substream,
 		default:
 			return 0;
 		}
+		break;
 	default:
 		return 0;
 	}
@@ -3919,7 +3919,9 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 						 wm8994);
 			if (ret == 0) {
 				wm8994->jackdet = true;
-			} 
+			} else {
+				dev_warn(codec->dev, "Failed to request Jack detect IRQ: %d\n", ret);
+			}
 		}
 		break;
 	default:

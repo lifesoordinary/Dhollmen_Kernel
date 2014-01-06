@@ -103,7 +103,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
 #define TCP_SYNACK_RETRIES 5	/* number of times to retry passive opening a
 				 * connection: ~180sec is RFC minimum	*/
 
-#define TCP_TIMEWAIT_LEN (30*HZ) /* how long to wait to destroy TIME-WAIT
+#define TCP_TIMEWAIT_LEN (60*HZ) /* how long to wait to destroy TIME-WAIT
 				  * state, about 60 seconds	*/
 #define TCP_FIN_TIMEOUT	TCP_TIMEWAIT_LEN
                                  /* BSD style FIN_WAIT2 deadlock breaker.
@@ -129,8 +129,8 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
 					                 */
 
 #define TCP_KEEPALIVE_TIME	(120*60*HZ)	/* two hours */
-#define TCP_KEEPALIVE_PROBES	5		/* Max of 9 keepalive probes	*/
-#define TCP_KEEPALIVE_INTVL	(30*HZ)
+#define TCP_KEEPALIVE_PROBES	9		/* Max of 9 keepalive probes	*/
+#define TCP_KEEPALIVE_INTVL	(75*HZ)
 
 #define MAX_TCP_KEEPIDLE	32767
 #define MAX_TCP_KEEPINTVL	32767
@@ -246,6 +246,7 @@ extern int sysctl_tcp_max_ssthresh;
 extern int sysctl_tcp_cookie_size;
 extern int sysctl_tcp_thin_linear_timeouts;
 extern int sysctl_tcp_thin_dupack;
+extern int sysctl_tcp_challenge_ack_limit;
 
 extern atomic_long_t tcp_memory_allocated;
 extern struct percpu_counter tcp_sockets_allocated;
@@ -901,6 +902,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
 	if (sysctl_tcp_low_latency || !tp->ucopy.task)
 		return 0;
 
+	skb_dst_force(skb);
 	__skb_queue_tail(&tp->ucopy.prequeue, skb);
 	tp->ucopy.memory += skb->truesize;
 	if (tp->ucopy.memory > sk->sk_rcvbuf) {

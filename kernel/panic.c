@@ -248,6 +248,9 @@ void add_taint(unsigned flag)
 	case TAINT_FIRMWARE_WORKAROUND:
 		break;
 
+	default:
+		if (__debug_locks_off())
+			printk(KERN_WARNING "Disabling lock debugging due to kernel taint\n");
 	}
 
 	set_bit(flag, &tainted_mask);

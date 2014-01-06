@@ -56,6 +56,7 @@
 #include "sec_debug.h"
 #include "sec_getlog.h"
 #include "sec_muxtbl.h"
+#include "sec_log_buf.h"
 
 /* gpio to distinguish WiFi and USA-BBY
  *
@@ -94,6 +95,12 @@ static struct platform_device ramconsole_device = {
 };
 #endif /* CONFIG_ANDROID_RAM_CONSOLE */
 
+static struct platform_device bcm4330_bluetooth_device = {
+	.name		= "bcm4330_bluetooth",
+	.id		= -1,
+};
+
+#if defined(CONFIG_SEC_DEBUG)
 static struct ramoops_platform_data ramoops_pdata = {
 	.mem_size	= ESPRESSO10_RAMOOPS_SIZE,
 	.mem_address	= ESPRESSO10_RAMOOPS_START,
@@ -108,17 +115,13 @@ static struct platform_device ramoops_device = {
 	},
 };
 
-static struct platform_device bcm4330_bluetooth_device = {
-	.name		= "bcm4330_bluetooth",
-	.id		= -1,
-};
-
 static struct platform_device *espresso10_dbg_devices[] __initdata = {
 #if defined(CONFIG_ANDROID_RAM_CONSOLE)
 	&ramconsole_device,
 #endif
 	&ramoops_device,
 };
+#endif /*CONFIG_SEC_DEBUG */
 
 static struct platform_device *espresso10_devices[] __initdata = {
 	&bcm4330_bluetooth_device,
@@ -249,10 +252,10 @@ static void __init espresso10_init(void)
 	omap_hsi_allow_registration();
 #endif
 
+#ifdef CONFIG_SEC_DEBUG	
 	if (sec_debug_get_level())
-		platform_add_devices(espresso10_dbg_devices,
-				     ARRAY_SIZE(espresso10_dbg_devices));
-
+		platform_add_devices(espresso10_dbg_devices, ARRAY_SIZE(espresso10_dbg_devices));
+#endif
 	sec_common_init_post();
 }
 
@@ -287,16 +290,16 @@ static void __init espresso10_reserve(void)
 	omap_ion_init();
 #endif
 	/* do the static reservations first */
+#ifdef CONFIG_SEC_DEBUG		
 	if (sec_debug_get_level()) {
 #if defined(CONFIG_ANDROID_RAM_CONSOLE)
-		memblock_remove(ESPRESSO10_RAMCONSOLE_START,
-				ESPRESSO10_RAMCONSOLE_SIZE);
+		memblock_remove(ESPRESSO10_RAMCONSOLE_START, ESPRESSO10_RAMCONSOLE_SIZE);
 #endif
 #if defined(CONFIG_RAMOOPS)
-		memblock_remove(ESPRESSO10_RAMOOPS_START,
-				ESPRESSO10_RAMOOPS_SIZE);
+		memblock_remove(ESPRESSO10_RAMOOPS_START, ESPRESSO10_RAMOOPS_SIZE);
 #endif
 	}
+#endif
 
 	memblock_remove(PHYS_ADDR_SMC_MEM, PHYS_ADDR_SMC_SIZE);
 	memblock_remove(PHYS_ADDR_DUCATI_MEM, PHYS_ADDR_DUCATI_SIZE);
@@ -307,6 +310,8 @@ static void __init espresso10_reserve(void)
 				    OMAP4_ION_HEAP_SECURE_INPUT_SIZE +
 				    OMAP4_ION_HEAP_SECURE_OUTPUT_WFDHDCP_SIZE);
 	omap_reserve();
+
+	sec_log_buf_reserve();
 }
 
 MACHINE_START(OMAP4_SAMSUNG, "Espresso10")

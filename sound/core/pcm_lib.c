@@ -166,6 +166,12 @@ static void xrun(struct snd_pcm_substream *substream)
 	if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
 		snd_pcm_gettime(runtime, (struct timespec *)&runtime->status->tstamp);
 	snd_pcm_stop(substream, SNDRV_PCM_STATE_XRUN);
+	if (xrun_debug(substream, XRUN_DEBUG_BASIC)) {
+		char name[16];
+		pcm_debug_name(substream, name, sizeof(name));
+		snd_printd(KERN_DEBUG "XRUN: %s\n", name);
+		dump_stack_on_xrun(substream);
+	}
 }
 
 #ifdef CONFIG_SND_PCM_XRUN_DEBUG
@@ -242,6 +248,15 @@ static void xrun_log_show(struct snd_pcm_substream *substream)
 		entry = &log->entries[idx];
 		if (entry->period_size == 0)
 			break;
+		snd_printd("hwptr log: %s: %sj=%lu, pos=%ld/%ld/%ld, "
+			   "hwptr=%ld/%ld\n",
+			   name, entry->in_interrupt ? "[Q] " : "",
+			   entry->jiffies,
+			   (unsigned long)entry->pos,
+			   (unsigned long)entry->period_size,
+			   (unsigned long)entry->buffer_size,
+			   (unsigned long)entry->old_hw_ptr,
+			   (unsigned long)entry->hw_ptr_base);
 		idx++;
 		idx %= XRUN_LOG_CNT;
 	}
@@ -342,6 +357,22 @@ static int snd_pcm_update_hw_ptr0(struct snd_pcm_substream *substream,
 	delta = new_hw_ptr - old_hw_ptr;
 	if (delta < 0)
 		delta += runtime->boundary;
+	if (xrun_debug(substream, in_interrupt ?
+			XRUN_DEBUG_PERIODUPDATE : XRUN_DEBUG_HWPTRUPDATE)) {
+		char name[16];
+		pcm_debug_name(substream, name, sizeof(name));
+		snd_printd("%s_update: %s: pos=%u/%u/%u, "
+			   "hwptr=%ld/%ld/%ld/%ld\n",
+			   in_interrupt ? "period" : "hwptr",
+			   name,
+			   (unsigned int)pos,
+			   (unsigned int)runtime->period_size,
+			   (unsigned int)runtime->buffer_size,
+			   (unsigned long)delta,
+			   (unsigned long)old_hw_ptr,
+			   (unsigned long)new_hw_ptr,
+			   (unsigned long)runtime->hw_ptr_base);
+	}
 
 	if (runtime->no_period_wakeup) {
 		snd_pcm_sframes_t xrun_threshold;
@@ -1731,7 +1762,10 @@ static int wait_for_avail(struct snd_pcm_substream *substream,
 	if (runtime->no_period_wakeup)
 		wait_time = MAX_SCHEDULE_TIMEOUT;
 	else {
-		wait_time = 10;
+		if (substream->pcm->card->number != 0)
+			wait_time = 1;
+		else
+			wait_time = 10;
 		if (runtime->rate) {
 			long t = runtime->period_size * 2 / runtime->rate;
 			wait_time = max(t, wait_time);
