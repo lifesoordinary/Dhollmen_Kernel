@@ -171,11 +171,6 @@ static int page_zero_filled(void *ptr)
 	return 1;
 }
 
-static size_t zram_default_disksize_bytes(void)
-{
-	return CONFIG_ZRAM_DEFAULT_DISKSIZE;
-}
-
 static void zram_set_disksize(struct zram *zram, size_t totalram_bytes)
 {
 	if (!zram->disksize) {
@@ -693,7 +688,7 @@ int zram_init_device(struct zram *zram)
 		return 0;
 	}
 
-	zram_set_disksize(zram, zram_default_disksize_bytes());
+	zram_set_disksize(zram, totalram_pages << PAGE_SHIFT);
 
 	zram->compress_workmem = kzalloc(WMSIZE, GFP_KERNEL);
 	if (!zram->compress_workmem) {
@@ -713,7 +708,7 @@ int zram_init_device(struct zram *zram)
 	num_pages = zram->disksize >> PAGE_SHIFT;
 	zram->table = vzalloc(num_pages * sizeof(*zram->table));
 	if (!zram->table) {
-		pr_err("Error allocating zram address table\n");
+		pr_err("Error allocating zRam address table\n");
 		ret = -ENOMEM;
 		goto fail_no_table;
 	}
@@ -738,7 +733,7 @@ int zram_init_device(struct zram *zram)
 
 	zram->mem_pool = xv_create_pool();
 	if (!zram->mem_pool) {
-		pr_err("Error creating memory pool\n");
+		pr_err("Error creating zRam memory pool\n");
 		ret = -ENOMEM;
 		goto fail;
 	}
@@ -754,7 +749,7 @@ fail_no_table:
 fail:
 	__zram_reset_device(zram);
 	up_write(&zram->init_lock);
-	pr_err("Initialization failed: err=%d\n", ret);
+	pr_err("Initialization zRam failed: err=%d\n", ret);
 	return ret;
 }
 
@@ -837,8 +832,7 @@ out:
 
 static void destroy_device(struct zram *zram)
 {
-	sysfs_remove_group(&disk_to_dev(zram->disk)->kobj,
-			&zram_disk_attr_group);
+	sysfs_remove_group(&disk_to_dev(zram->disk)->kobj, &zram_disk_attr_group);
 
 	if (zram->disk) {
 		del_gendisk(zram->disk);
@@ -856,9 +850,9 @@ static int __init zram_init(void)
 	if (zram_num_devices == 0) {
 		zram_num_devices = CONFIG_ZRAM_NUM_DEVICES;
 	}
-	
+
 	if (zram_num_devices > max_num_devices) {
-		pr_warning("Invalid value for num_devices: %u\n", zram_num_devices);
+		pr_warning("Invalid number of devices: %u\n", zram_num_devices);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -871,12 +865,11 @@ static int __init zram_init(void)
 	}
 
 	if (!zram_num_devices) {
-		pr_info("num_devices not specified. Using default: 4\n");
-		zram_num_devices = 4; // Yank555.lu : Default to 4 for those wanting to use up to 4 concurrent zram swap devices
+		zram_num_devices = 1;
 	}
 
 	/* Allocate the device array and initialize each one */
-	pr_info("Creating %u devices ...\n", zram_num_devices);
+	pr_info("Creating %u zRam device(s) ...\n", zram_num_devices);
 	zram_devices = kzalloc(zram_num_devices * sizeof(struct zram), GFP_KERNEL);
 	if (!zram_devices) {
 		ret = -ENOMEM;
@@ -919,7 +912,6 @@ static void __exit zram_exit(void)
 	unregister_blkdev(zram_major, "zram");
 
 	kfree(zram_devices);
-	pr_debug("Cleanup done!\n");
 }
 
 module_param(zram_num_devices, uint, 0);
