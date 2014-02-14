@@ -100,7 +100,7 @@ obj-$(CONFIG_MACH_SAMSUNG_ESPRESSO_10)	+= board-espresso10.o \
 obj-$(CONFIG_MACH_SAMSUNG_ESPRESSO_10)	+= board-espresso10-muxset-r00.o \
 					   board-espresso10-muxset-r05.o \
 					   board-espresso10-muxset-r07.o \
-				board-espresso10-usa-bby-muxset-r07.o \
+					   board-espresso10-usa-bby-muxset-r07.o \
 					   board-espresso10-muxset-r08.o
 
 obj-$(CONFIG_MACH_SAMSUNG_KONA)		+= board-kona.o \

@@ -207,9 +207,6 @@ int omap_cpufreq_alloc(unsigned int nId, unsigned long req_freq, int type)
 	mutex_lock(&omap_cpufreq_lock);
 	cur_freq = omap_getspeed(0);
 
-	pr_debug("[CPUFREQ] TYPE=%s nID=%d curr freq=%dKHz cur_lock_freq=%dKHz\n",
-			cpufreq_lock_type_str[type], nId, cur_freq, cpufreq_lock->cur_lock_freq);
-
 	if (cpufreq_compare(cpufreq_lock->is_ceil, cpufreq_lock->cur_lock_freq, cur_freq)) {
 
 		struct cpufreq_policy *policy = cpufreq_cpu_get(0);
@@ -218,12 +215,11 @@ int omap_cpufreq_alloc(unsigned int nId, unsigned long req_freq, int type)
 			goto out;
 
 		omap_cpufreq_scale(cpufreq_lock->cur_lock_freq, cur_freq);
-		pr_debug("[CPUFREQ] TYPE=%s Need to update current target(%d KHz)\n",
-			cpufreq_lock_type_str[type], cpufreq_lock->cur_lock_freq);
 	}
 
 out:
 	mutex_unlock(&omap_cpufreq_lock);
+	mutex_unlock(&omap_cpufreq_alloc_lock);
 
 	return 0;
 }
@@ -257,8 +253,6 @@ void omap_cpufreq_lock_free(unsigned int nId, int type)
 				cpufreq_lock->cur_lock_freq = cpufreq_lock->value[i];
 		}
 	}
-	pr_debug("[CPUFREQ] TYPE=%s nID=%d CurrLockFreq=%d KHz\n",
-			cpufreq_lock_type_str[type], nId, cpufreq_lock->cur_lock_freq);
 	mutex_unlock(&omap_cpufreq_alloc_lock);
 
 	return;
@@ -947,7 +941,11 @@ static ssize_t store_voltage_table(struct cpufreq_policy *policy,
 			buf += (strlen(size_cur)+1);
 
 			// Force smartreflex to recalibrate based on new voltages
+#ifdef CONFIG_MACH_SAMSUNG_ESPRESSO_10
 			if (freq_table[i].frequency <= 1216000 &&
+#else
+			if (freq_table[i].frequency <= 1200000 &&
+#endif
 				freq_table[i].frequency >= policymin) {
 				vdata = omap_voltage_get_curr_vdata(mpu_voltdm);
 				if (!vdata) {
