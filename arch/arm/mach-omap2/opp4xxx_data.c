@@ -295,7 +295,7 @@ static struct omap_opp_def __initdata omap443x_opp_def_list[] = {
 #ifdef CONFIG_OMAP4430_TOP_CPU
 #ifdef CONFIG_MACH_SAMSUNG_ESPRESSO_10
 	/* MPU OPP4 - OPP-NITRO2 */
-	OPP_INITIALIZER("mpu", "dpll_mpu_ck", "mpu", false
+	OPP_INITIALIZER("mpu", "dpll_mpu_ck", "mpu", false,
 			1216000000, OMAP4430_VDD_MPU_OPPNITRO2_UV),
 	/* MPU OPP5 - OPP-NITROSB */
 	OPP_INITIALIZER("mpu", "dpll_mpu_ck", "mpu", false,
